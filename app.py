@@ -2,81 +2,94 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 
-# --- CONFIGURACIÓN DE LA PÁGINA ---
-st.set_page_config(page_title="AI Recruiter Pro", page_icon="👔", layout="centered")
+# --- 1. CONFIGURACIÓN DE LA VACANTE (JD) ---
+# PEGA AQUÍ ABAJO LA DESCRIPCIÓN DEL CARGO QUE QUIERES QUE APAREZCA POR DEFECTO.
+# (Mantén las tres comillas al principio y al final)
+JD_PREDEFINIDA = """
+TITULO DEL CARGO: [Escribe aquí el nombre del cargo, ej: Ejecutivo de Ventas]
 
-# --- GESTIÓN DE LA CLAVE API (SEGURIDAD) ---
+RESPONSABILIDADES:
+- [Pega aquí las responsabilidades...]
+- ...
+
+REQUISITOS EXCLUYENTES:
+- [Pega aquí los requisitos...]
+- ...
+
+HABILIDADES DESEABLES:
+- [Pega aquí lo deseable...]
+"""
+
+# --- 2. CONFIGURACIÓN DE LA APP Y CLAVES ---
+st.set_page_config(page_title="AI Recruiter", page_icon="👔", layout="centered")
+
 # Intentamos obtener la clave desde los secretos de Streamlit (Nube)
-# Si falla, busca en una variable local (para pruebas en tu PC)
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except:
-    # Opcional: Si quieres probar localmente, puedes descomentar la línea de abajo y pegar tu clave
-    # api_key = "PEGA_TU_API_KEY_AQUÍ_SOLO_PARA_PRUEBAS_LOCALES" 
-    st.error("No se encontró la API Key. Configúrala en los Secrets de Streamlit.")
+    # Si quieres probar en tu PC sin configurar secrets, descomenta la línea de abajo:
+    # api_key = "TU_CLAVE_AIza_AQUI"
+    st.error("⚠️ No se encontró la API Key. Configúrala en los Secrets de Streamlit.")
     st.stop()
 
-# Configurar Gemini
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-1.5-flash') # Usamos Flash por rapidez
+model = genai.GenerativeModel('gemini-1.5-flash') 
 
-# --- INTERFAZ ---
-st.title("🤖 Asistente de Selección de Talento")
-st.markdown("Sube el CV en PDF para analizarlo contra la vacante activa.")
+# --- 3. INTERFAZ DE USUARIO ---
+st.title("🤖 Asistente de Selección")
+st.markdown("Revisión inteligente de perfiles contra la vacante activa.")
 
-# --- SECCIÓN DE CONFIGURACIÓN (Oculta en un expander para que no moleste) ---
-with st.expander("📝 Ver/Editar Descripción del Cargo (JD)"):
-    default_jd = """
-    [PEGA AQUÍ LA DESCRIPCIÓN DEL CARGO POR DEFECTO]
-    Requisitos:
-    - Experiencia en...
-    - Conocimientos de...
-    """
-    jd_text = st.text_area("Descripción del Cargo", value=default_jd, height=150)
+# SECCIÓN A: La Descripción del Cargo (Ya rellena pero editable)
+with st.expander("📝 Ver o Editar Descripción del Cargo (JD)", expanded=False):
+    st.info("ℹ️ Puedes modificar este texto si la vacante ha cambiado.")
+    # Aquí usamos la variable JD_PREDEFINIDA como valor inicial
+    jd_actual = st.text_area("Descripción de la Vacante", value=JD_PREDEFINIDA, height=250)
 
-# --- CARGA DE ARCHIVO ---
+# SECCIÓN B: Carga del CV
+st.subheader("Cargar Candidato")
 uploaded_file = st.file_uploader("Sube el Curriculum Vitae (PDF)", type="pdf")
 
+# --- 4. LÓGICA DE ANÁLISIS ---
 if uploaded_file is not None:
-    if st.button("🔍 Analizar Candidato", type="primary"):
-        with st.spinner('Leyendo PDF y analizando perfil... 🧠'):
+    # Botón de acción
+    if st.button("Analizar Candidato", type="primary"):
+        with st.spinner('Leyendo documento y analizando... 🧠'):
             try:
-                # 1. Extraer texto del PDF
+                # A) Extraer texto del PDF
                 reader = PdfReader(uploaded_file)
                 cv_text = ""
                 for page in reader.pages:
                     cv_text += page.extract_text()
 
-                # 2. Construir el Prompt
+                # B) Crear el Prompt (Usamos jd_actual, que es lo que hay en la caja de texto)
                 prompt = f"""
-                ACTÚA COMO: Reclutador Experto.
-                
-                MISIÓN: Analizar el siguiente CV contra la JD provista.
+                ROL: Eres un experto en Selección de Personal (Recruiter).
+                TAREA: Analiza el siguiente CV basándote ESTRICTAMENTE en la Descripción del Cargo (JD) proporcionada.
                 
                 ---
                 DESCRIPCIÓN DEL CARGO (JD):
-                {jd_text}
+                {jd_actual}
                 ---
                 
                 CV DEL CANDIDATO:
                 {cv_text}
                 ---
                 
-                Genera un reporte estructurado en Markdown con:
-                1. Decisión (Avanza/Descarta) y Puntaje de Ajuste (0-100%).
-                2. Tabla de cumplimiento de requisitos clave.
-                3. Fortalezas y Debilidades (Gaps).
-                4. 3 Preguntas sugeridas para la entrevista técnica.
+                SALIDA ESPERADA (Formato Markdown):
+                1. **DECISIÓN FINAL:** (🟢 AVANZA / 🟡 REVISAR / 🔴 DESCARTAR) + Breve justificación.
+                2. **PUNTAJE DE AJUSTE:** (0-100%).
+                3. **TABLA DE REQUISITOS:** Lista los requisitos clave de la JD y marca si el CV los cumple (✅/❌) con evidencia.
+                4. **OBSERVACIONES:** Fortalezas principales y Riesgos detectados.
+                5. **PREGUNTAS SUGERIDAS:** 3 preguntas técnicas para la entrevista.
                 """
 
-                # 3. Llamar a la IA
+                # C) Llamar a Gemini
                 response = model.generate_content(prompt)
                 
-                # 4. Mostrar resultado
-                st.success("¡Análisis Completado!")
+                # D) Mostrar resultado
+                st.success("Análisis Completado")
                 st.markdown("---")
                 st.markdown(response.text)
 
             except Exception as e:
-                st.error(f"Ocurrió un error: {e}")
-
+                st.error(f"Ocurrió un error al procesar: {e}")
