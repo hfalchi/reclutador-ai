@@ -40,7 +40,7 @@ Habilidad para coordinar entrevistas, recopilar información y generar alertas c
 HABILIDADES DESEABLES (no excluyente)
 Experiencia previa en empresas de tecnología y/o en control de gestión en empresas de servicios (consultoría, software factory, outsourcing, operación de soporte).
 Familiaridad con conceptos de HH, hitos, SLA, garantías, operación de mesa de ayuda y seguimiento de consumo.
-
+"""
 
 # --- 2. CONFIGURACIÓN DE LA APP Y CLAVES ---
 st.set_page_config(page_title="AI Recruiter", page_icon="👔", layout="centered")
@@ -115,4 +115,5 @@ if uploaded_file is not None:
 
             except Exception as e:
                 st.error(f"Ocurrió un error al procesar: {e}")
+
 
